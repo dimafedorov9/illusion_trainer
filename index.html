@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Оптические иллюзии и ИИ — исследовательский тренажёр</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: Georgia, 'Times New Roman', serif;
+  background: #f5f0e8;
+  color: #2c2c2c;
+  min-height: 100vh;
+}
+.wrap {
+  max-width: 740px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.header {
+  text-align: center;
+  border-bottom: 2px solid #c8b99a;
+  padding-bottom: 18px;
+  margin-bottom: 26px;
+}
+.header h1 {
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.header .meta { font-size: 0.83rem; color: #666; line-height: 1.65; }
+
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ── кнопки ── */
+.btn {
+  display: inline-block;
+  padding: 11px 30px;
+  background: #3a6b3a;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.97rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn:hover { background: #2d532d; }
+.btn:disabled { background: #aaa; cursor: default; }
+.btn-center { text-align: center; margin-top: 18px; }
+
+/* ── стартовый ── */
+.card {
+  background: #fff;
+  border: 1px solid #d9cfc0;
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+.card p { margin-bottom: 10px; line-height: 1.7; font-size: 0.95rem; }
+.card p:last-child { margin-bottom: 0; }
+
+/* ── прогресс ── */
+.progress-text { font-size: 0.82rem; color: #777; margin-bottom: 5px; }
+.progress-bar-wrap { background: #ddd; border-radius: 4px; height: 6px; margin-bottom: 18px; }
+.progress-bar { background: #3a6b3a; height: 6px; border-radius: 4px; transition: width 0.3s; }
+
+/* ── вопрос ── */
+.qcard {
+  background: #fff;
+  border: 1px solid #d9cfc0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 18px;
+}
+.badge {
+  display: inline-block;
+  font-size: 0.74rem;
+  padding: 2px 10px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  font-family: Arial, sans-serif;
+}
+.badge-a { background: #e8f0e8; color: #3a6b3a; border: 1px solid #b0cdb0; }
+.badge-o { background: #e8eef8; color: #204080; border: 1px solid #a0b8d8; }
+.badge-adv { background: #f0e8e8; color: #7a2020; border: 1px solid #cdadb0; }
+
+.qtitle { font-size: 0.97rem; font-weight: bold; margin-bottom: 14px; line-height: 1.5; }
+
+.img-center { text-align: center; margin-bottom: 14px; }
+.img-center img { max-width: 100%; max-height: 320px; border-radius: 4px; border: 1px solid #ccc; }
+.img-sub { font-size: 0.78rem; color: #888; margin-top: 4px; font-style: italic; }
+
+/* adversarial pipeline: orig + noise + result */
+.adv-pipeline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.adv-pipeline .step { text-align: center; flex: 1; min-width: 100px; }
+.adv-pipeline .step img { max-width: 100%; max-height: 160px; border-radius: 4px; border: 1px solid #ccc; }
+.adv-pipeline .arrow { font-size: 1.5rem; color: #999; flex: 0 0 auto; }
+.adv-pipeline .step-label { font-size: 0.75rem; color: #888; margin-top: 4px; }
+.noise-box {
+  width: 80px; height: 80px;
+  border: 1px solid #ccc; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; color: #aaa; background: #f0f0f0;
+  flex-direction: column; gap: 2px;
+  margin: 0 auto;
+}
+
+/* варианты ответов */
+.options { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 10px; }
+.opt-btn {
+  padding: 9px 20px;
+  background: #f5f0e8;
+  border: 2px solid #c8b99a;
+  border-radius: 6px;
+  font-size: 0.93rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 110px;
+  text-align: center;
+}
+.opt-btn:hover { border-color: #3a6b3a; background: #eaf2ea; }
+.opt-btn.selected { border-color: #3a6b3a; background: #3a6b3a; color: #fff; }
+
+.next-row { text-align: right; }
+
+/* ── результаты ── */
+.score-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+.score-box {
+  flex: 1; min-width: 110px;
+  background: #f5f0e8;
+  border: 1px solid #d9cfc0;
+  border-radius: 6px;
+  padding: 12px; text-align: center;
+}
+.score-box .num { font-size: 1.9rem; font-weight: bold; }
+.score-box .lbl { font-size: 0.76rem; color: #777; margin-top: 2px; line-height: 1.35; }
+
+.r-item { border: 1px solid #e0d8cc; border-radius: 6px; margin-bottom: 12px; overflow: hidden; }
+.r-head { background: #f5f0e8; padding: 7px 14px; font-size: 0.8rem; color: #666; border-bottom: 1px solid #e0d8cc; }
+.r-body { padding: 10px 14px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; font-size: 0.86rem; }
+.r-col { text-align: center; }
+.r-col .lbl { font-size: 0.73rem; color: #888; margin-bottom: 3px; }
+.r-col .val { font-weight: bold; }
+.ok  { color: #3a6b3a; }
+.bad { color: #b03030; }
+
+.saved-note { font-size: 0.8rem; color: #888; font-style: italic; text-align: center; margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="header">
+  <h1>Оптические иллюзии и искусственный интеллект:<br>исследовательский тренажёр</h1>
+  <div class="meta">
+    Исследовательский проект · Зурабян Римма, 4 «А» класс<br>
+    МАОУ «Гимназия «Краснообская»», р.п. Краснообск<br>
+    Научный руководитель: Федоров Дмитрий Сергеевич
+  </div>
+</div>
+
+<!-- СТАРТ -->
+<div id="s-start" class="screen active">
+  <div class="card">
+    <p>Этот тренажёр создан в рамках научно-исследовательского проекта. Вам покажут <strong>15 вопросов</strong> трёх типов:</p>
+    <p>🔲 <strong>Иллюзии Адельсона</strong> — два квадрата на шахматной доске. Выберите, какой из них темнее: A, B или они одинаковые.</p>
+    <p>🐾 <strong>Обычные фотографии</strong> — выберите, что изображено. Это проверочные вопросы.</p>
+    <p>⚡ <strong>Adversarial-примеры</strong> — та же фотография, но чуть изменённая. Снова выберите, что изображено. Посмотрим, обманет ли картинка нейросеть!</p>
+    <p style="font-size:0.85rem;color:#888">Ваши ответы сохраняются анонимно для научного исследования.</p>
+  </div>
+  <div class="btn-center"><button class="btn" onclick="startQuiz()">Начать →</button></div>
+</div>
+
+<!-- ВОПРОС -->
+<div id="s-question" class="screen">
+  <div class="progress-text" id="prog-txt"></div>
+  <div class="progress-bar-wrap"><div class="progress-bar" id="prog-bar"></div></div>
+  <div class="qcard" id="qcard"></div>
+  <div class="next-row">
+    <button class="btn" id="btn-next" disabled onclick="nextQ()">Далее →</button>
+  </div>
+</div>
+
+<!-- РЕЗУЛЬТАТЫ -->
+<div id="s-results" class="screen">
+  <div class="card">
+    <h2 style="font-size:1.05rem;margin-bottom:14px;border-bottom:1px solid #eee;padding-bottom:8px;">Результаты</h2>
+    <div class="score-row">
+      <div class="score-box"><div class="num" id="sc-h">—</div><div class="lbl">правильных<br>ответов у вас</div></div>
+      <div class="score-box"><div class="num" id="sc-ai">—</div><div class="lbl">правильных<br>ответов у ГигаЧат</div></div>
+    </div>
+    <div id="r-list"></div>
+    <div class="saved-note" id="saved-note">Сохранение…</div>
+  </div>
+  <div class="btn-center"><button class="btn" onclick="restartQuiz()">Пройти ещё раз</button></div>
+</div>
+
+</div><!-- /wrap -->
+
+<script src="illusion_data.js"></script>
+<script>
+// ─── константы ─────────────────────────────────────────────────────────────
+
+// Варианты ответов для adversarial (все животные из датасета + несколько отвлекающих)
+const ADV_OPTIONS_MAP = {
+  'кот':    ['Кот', 'Собака', 'Кролик', 'Птица'],
+  'свинья': ['Свинья', 'Собака', 'Корова', 'Лошадь'],
+  'панда':  ['Панда', 'Медведь', 'Кот', 'Обезьяна'],
+  'собака': ['Собака', 'Кот', 'Лиса', 'Волк'],
+  'утка':   ['Утка', 'Курица', 'Гусь', 'Голубь'],
+};
+
+// Шум — одно общее изображение (файл "0 шум")
+// base64 уже в ILLUSION_DATA.noise (добавим ниже)
+
+// ─── построение вопросов ───────────────────────────────────────────────────
+function buildQuestions() {
+  const qs = [];
+
+  // 5 × Адельсон
+  ILLUSION_DATA.adelson.forEach(item => {
+    qs.push({
+      type: 'adelson',
+      img: item.img,
+      question: 'Посмотрите на квадраты A и B на изображении. Какой из них выглядит темнее?',
+      options: ['A', 'B', 'Одинаковые'],
+      correct: 'одинаковые',
+      ai: 'одинаковые',
+      id: 'adelson_' + item.id
+    });
+  });
+
+  // 5 × Оригинал + 5 × Adversarial
+  ILLUSION_DATA.adversarial.forEach(item => {
+    const opts = ADV_OPTIONS_MAP[item.correct] || ['Вариант 1','Вариант 2','Вариант 3','Вариант 4'];
+
+    // Вопрос 1: оригинал
+    qs.push({
+      type: 'orig',
+      img: item.orig,
+      question: 'Что изображено на этой фотографии?',
+      options: shuffle([...opts]),
+      correct: capitalize(item.correct),
+      ai: capitalize(item.correct),  // на оригинале ГигаЧат отвечает правильно
+      id: 'orig_' + item.id,
+      pairId: item.id
+    });
+
+    // Вопрос 2: adversarial
+    qs.push({
+      type: 'adversarial',
+      origImg: item.orig,
+      noiseImg: ILLUSION_DATA.noise,
+      advImg: item.adv,
+      question: 'Та же фотография немного изменена (добавлен незаметный глазу «шум»). Что изображено теперь?',
+      options: shuffle([...opts]),
+      correct: capitalize(item.correct),
+      ai: capitalize(item.ai),
+      id: 'adv_' + item.id,
+      pairId: item.id
+    });
+  });
+
+  return shuffle(qs);
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function capitalize(s) {
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// ─── состояние ─────────────────────────────────────────────────────────────
+let questions = [], current = 0, userAnswers = [], selected = null;
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startQuiz() {
+  questions = buildQuestions();
+  current = 0; userAnswers = [];
+  showScreen('s-question');
+  renderQ();
+}
+
+function restartQuiz() { showScreen('s-start'); }
+
+// ─── рендер вопроса ────────────────────────────────────────────────────────
+function renderQ() {
+  const q = questions[current];
+  const total = questions.length;
+  selected = null;
+  document.getElementById('prog-txt').textContent = `Вопрос ${current+1} из ${total}`;
+  document.getElementById('prog-bar').style.width = `${(current/total)*100}%`;
+  document.getElementById('btn-next').disabled = true;
+
+  const card = document.getElementById('qcard');
+  let html = '';
+
+  if (q.type === 'adelson') {
+    html = `
+      <span class="badge badge-a">🔲 Иллюзия Адельсона</span>
+      <div class="qtitle">${q.question}</div>
+      <div class="img-center">
+        <img src="${q.img}" alt="Иллюзия Адельсона">
+        <div class="img-sub">Найдите квадраты A и B</div>
+      </div>
+      <div class="options">${q.options.map(o =>
+        `<button class="opt-btn" onclick="pick('${o}',this)">${o}</button>`
+      ).join('')}</div>
+    `;
+  } else if (q.type === 'orig') {
+    html = `
+      <span class="badge badge-o">🐾 Обычная фотография</span>
+      <div class="qtitle">${q.question}</div>
+      <div class="img-center">
+        <img src="${q.img}" alt="Фотография">
+      </div>
+      <div class="options">${q.options.map(o =>
+        `<button class="opt-btn" onclick="pick('${o}',this)">${o}</button>`
+      ).join('')}</div>
+    `;
+  } else {
+    // adversarial — показываем пайплайн
+    html = `
+      <span class="badge badge-adv">⚡ Adversarial-пример</span>
+      <div class="qtitle">${q.question}</div>
+      <div class="adv-pipeline">
+        <div class="step">
+          <img src="${q.origImg}" alt="Оригинал">
+          <div class="step-label">Оригинал</div>
+        </div>
+        <div class="arrow">+</div>
+        <div class="step">
+          <div class="noise-box">
+            <span style="font-size:1.1rem">🔀</span>
+            <span>шум</span>
+          </div>
+          <div class="step-label">Незаметный шум</div>
+        </div>
+        <div class="arrow">=</div>
+        <div class="step">
+          <img src="${q.advImg}" alt="Изменённая версия">
+          <div class="step-label">Изменённая версия</div>
+        </div>
+      </div>
+      <div class="options">${q.options.map(o =>
+        `<button class="opt-btn" onclick="pick('${o}',this)">${o}</button>`
+      ).join('')}</div>
+    `;
+  }
+
+  card.innerHTML = html;
+}
+
+function pick(val, btn) {
+  document.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selected = val;
+  document.getElementById('btn-next').disabled = false;
+}
+
+function nextQ() {
+  const q = questions[current];
+  userAnswers.push({
+    type: q.type,
+    id: q.id,
+    user: selected,
+    correct: q.correct,
+    ai: q.ai
+  });
+  current++;
+  if (current < questions.length) renderQ();
+  else showResults();
+}
+
+// ─── результаты ────────────────────────────────────────────────────────────
+function norm(s) { return (s||'').trim().toLowerCase(); }
+function isOk(user, correct) {
+  const u = norm(user), c = norm(correct);
+  return u === c || u.includes(c) || c.includes(u);
+}
+
+function showResults() {
+  showScreen('s-results');
+  let hOk = 0, aiOk = 0;
+  const typeLabel = { adelson:'🔲 Адельсон', orig:'🐾 Оригинал', adversarial:'⚡ Adversarial' };
+  let html = '';
+
+  userAnswers.forEach((a, i) => {
+    const h = isOk(a.user, a.correct);
+    const ai = isOk(a.ai, a.correct);
+    if (h) hOk++; if (ai) aiOk++;
+    html += `
+      <div class="r-item">
+        <div class="r-head">${i+1}. ${typeLabel[a.type]||a.type}</div>
+        <div class="r-body">
+          <div class="r-col"><div class="lbl">Правильный ответ</div><div class="val">${a.correct}</div></div>
+          <div class="r-col"><div class="lbl">Ваш ответ</div><div class="val ${h?'ok':'bad'}">${a.user||'—'}</div></div>
+          <div class="r-col"><div class="lbl">ГигаЧат Vision</div><div class="val ${ai?'ok':'bad'}">${a.ai}</div></div>
+        </div>
+      </div>`;
+  });
+
+  const total = userAnswers.length;
+  document.getElementById('sc-h').textContent = `${hOk}/${total}`;
+  document.getElementById('sc-ai').textContent = `${aiOk}/${total}`;
+  document.getElementById('r-list').innerHTML = html;
+  saveData(userAnswers, hOk, aiOk);
+}
+
+// ─── сохранение ────────────────────────────────────────────────────────────
+const JSONBIN_KEY = '$2a$10$P.xHFpSIHJ6KA2qnygUzjueSfE.tyCGVDrQ09wLbS6r7xTCjC.qoO';
+const JSONBIN_URL = 'https://api.jsonbin.io/v3/b';
+
+function saveData(answers, hScore, aiScore) {
+  const record = {
+    ts: new Date().toISOString(),
+    hScore, aiScore,
+    total: answers.length,
+    answers: answers.map(a => ({
+      type: a.type, id: a.id,
+      user: a.user, correct: a.correct, ai: a.ai,
+      hOk: isOk(a.user, a.correct),
+      aiOk: isOk(a.ai, a.correct)
+    }))
+  };
+
+  // Локально — всегда
+  try {
+    const prev = JSON.parse(localStorage.getItem('illusion_log') || '[]');
+    prev.push(record);
+    localStorage.setItem('illusion_log', JSON.stringify(prev));
+  } catch(e) {}
+
+  // jsonbin
+  fetch(JSONBIN_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Master-Key': JSONBIN_KEY,
+      'X-Bin-Name': `illusion_${Date.now()}`
+    },
+    body: JSON.stringify(record)
+  })
+  .then(r => r.json())
+  .then(() => {
+    document.getElementById('saved-note').textContent = '✓ Ваши ответы сохранены для исследования. Спасибо!';
+  })
+  .catch(() => {
+    document.getElementById('saved-note').textContent = 'Ответы сохранены локально.';
+  });
+}
+</script>
+</body>
+</html>
